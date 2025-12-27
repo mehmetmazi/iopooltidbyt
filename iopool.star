@@ -34,7 +34,7 @@ def main(config):
 
     pool_data, is_stale = get_pool_data(api_key, pool_id)
 
-    if pool_data == None:
+    if pool_data is None:
         return render_error("Failed to fetch data")
 
     return render_display(pool_data, is_stale)
