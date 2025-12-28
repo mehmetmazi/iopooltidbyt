@@ -20,7 +20,7 @@ This pushes the applet directly to your device for immediate use.
    cd /Users/mehmet/Library/CloudStorage/Dropbox/Coding/iopooltidbyt
    
    # First, render the applet with your API key
-   pixlet render iopool.star api_key=oMryXoKbRx7desfBkK7L698RaI4Q8zdV9sGhACHk -o iopool_output.webp
+   pixlet render iopool.star api_key=YOUR_IOPOOL_API_KEY -o iopool_output.webp
    
    # Then push to your device
    pixlet push YOUR_DEVICE_ID iopool_output.webp --api-token=YOUR_API_TOKEN
@@ -43,7 +43,7 @@ You can create a script to automatically update the applet:
 
 DEVICE_ID="YOUR_DEVICE_ID"
 API_TOKEN="YOUR_API_TOKEN"
-IOPOOL_API_KEY="oMryXoKbRx7desfBkK7L698RaI4Q8zdV9sGhACHk"
+IOPOOL_API_KEY="YOUR_IOPOOL_API_KEY"
 
 cd /Users/mehmet/Library/CloudStorage/Dropbox/Coding/iopooltidbyt
 
@@ -103,7 +103,7 @@ DEVICE_ID="your-device-id-here"
 API_TOKEN="your-api-token-here"
 
 # Render and push
-pixlet render iopool.star api_key=oMryXoKbRx7desfBkK7L698RaI4Q8zdV9sGhACHk -o iopool_output.webp
+pixlet render iopool.star api_key=YOUR_IOPOOL_API_KEY -o iopool_output.webp
 pixlet push $DEVICE_ID iopool_output.webp --api-token=$API_TOKEN --installation-id=iopool-spa
 ```
 

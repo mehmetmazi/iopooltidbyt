@@ -93,7 +93,7 @@ def format_decimal(value):
     return "{}.{}".format(whole, decimal)
 
 def render_display(pool_data, is_stale = False):
-    title = "Jacuzzi"
+    title = pool_data.get("title", "Spa")
     measure = pool_data.get("latestMeasure", {})
 
     temp = measure.get("temperature", 0)
