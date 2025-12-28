@@ -92,6 +92,20 @@ def format_decimal(value):
         return "-{}.{}".format(whole, decimal)
     return "{}.{}".format(whole, decimal)
 
+def format_time(timestamp_str):
+    # Format ISO timestamp to HH:MM format
+    # Input: "2025-12-27T17:44:00.000Z"
+    # Output: "17:44"
+    if not timestamp_str:
+        return ""
+    # Extract time part (HH:MM) from ISO format
+    parts = timestamp_str.split("T")
+    if len(parts) >= 2:
+        time_part = parts[1]
+        time_only = time_part.split(":")[:2]  # Get HH:MM
+        return ":".join(time_only)
+    return ""
+
 def render_display(pool_data, is_stale = False):
     title = pool_data.get("title", "Spa")
     measure = pool_data.get("latestMeasure", {})
@@ -99,6 +113,7 @@ def render_display(pool_data, is_stale = False):
     temp = measure.get("temperature", 0)
     ph = measure.get("ph", 0)
     orp = measure.get("orp", 0)
+    measured_at = measure.get("measuredAt", "")
 
     # Determine colors based on values
     temp_color = get_temp_color(temp)
@@ -107,8 +122,9 @@ def render_display(pool_data, is_stale = False):
 
     # Dim title color when showing stale data
     title_color = "#666" if is_stale else "#4fc3f7"
+    update_time = format_time(measured_at)
 
-    # Build compact layout with smaller fonts
+    # Build title row with stale indicator
     title_children = []
     if is_stale:
         title_children.append(
@@ -121,7 +137,7 @@ def render_display(pool_data, is_stale = False):
         title_children.append(render.Box(width = 1, height = 1))  # spacer
     title_children.append(
         render.Text(
-            content = title[:12],
+            content = title[:10],
             font = "tom-thumb",
             color = title_color,
         ),
@@ -132,7 +148,7 @@ def render_display(pool_data, is_stale = False):
             padding = 1,
             child = render.Column(
                 expanded = True,
-                main_align = "space_between",
+                main_align = "start",
                 cross_align = "center",
                 children = [
                     # Title row at top
@@ -141,7 +157,15 @@ def render_display(pool_data, is_stale = False):
                         main_align = "center",
                         children = title_children,
                     ),
-                    # Headers row in the middle
+                    render.Box(width = 1, height = 1),  # small spacer
+                    # Data section with visual separator
+                    render.Box(
+                        width = 62,
+                        height = 1,
+                        color = "#444",
+                    ),
+                    render.Box(width = 1, height = 1),  # spacer
+                    # Headers row
                     render.Row(
                         expanded = True,
                         main_align = "space_between",
@@ -149,39 +173,83 @@ def render_display(pool_data, is_stale = False):
                             render.Text(
                                 content = "TEMP",
                                 font = "tom-thumb",
-                                color = "#888",
+                                color = "#aaa",
                             ),
                             render.Text(
                                 content = "pH",
                                 font = "tom-thumb",
-                                color = "#888",
+                                color = "#aaa",
                             ),
                             render.Text(
                                 content = "ORP",
                                 font = "tom-thumb",
-                                color = "#888",
+                                color = "#aaa",
                             ),
                         ],
                     ),
-                    # Values row at bottom
+                    render.Box(width = 1, height = 1),  # small spacer
+                    # Values row with colored indicators
                     render.Row(
                         expanded = True,
                         main_align = "space_between",
                         children = [
-                            render.Text(
-                                content = "{}C".format(format_decimal(temp)),
-                                font = "tom-thumb",
-                                color = temp_color,
+                            render.Row(
+                                children = [
+                                    render.Box(
+                                        width = 2,
+                                        height = 2,
+                                        color = temp_color,
+                                    ),
+                                    render.Box(width = 1, height = 1),  # spacer
+                                    render.Text(
+                                        content = "{}C".format(format_decimal(temp)),
+                                        font = "tom-thumb",
+                                        color = temp_color,
+                                    ),
+                                ],
                             ),
-                            render.Text(
-                                content = "{}".format(format_decimal(ph)),
-                                font = "tom-thumb",
-                                color = ph_color,
+                            render.Row(
+                                children = [
+                                    render.Box(
+                                        width = 2,
+                                        height = 2,
+                                        color = ph_color,
+                                    ),
+                                    render.Box(width = 1, height = 1),  # spacer
+                                    render.Text(
+                                        content = "{}".format(format_decimal(ph)),
+                                        font = "tom-thumb",
+                                        color = ph_color,
+                                    ),
+                                ],
                             ),
+                            render.Row(
+                                children = [
+                                    render.Box(
+                                        width = 2,
+                                        height = 2,
+                                        color = orp_color,
+                                    ),
+                                    render.Box(width = 1, height = 1),  # spacer
+                                    render.Text(
+                                        content = "{}".format(int(orp)),
+                                        font = "tom-thumb",
+                                        color = orp_color,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    render.Box(width = 1, height = 1),  # spacer
+                    # Update time at bottom
+                    render.Row(
+                        expanded = True,
+                        main_align = "center",
+                        children = [
                             render.Text(
-                                content = "{}".format(int(orp)),
+                                content = "Updated: {}".format(update_time) if update_time else "Updated: --:--",
                                 font = "tom-thumb",
-                                color = orp_color,
+                                color = "#666",
                             ),
                         ],
                     ),
