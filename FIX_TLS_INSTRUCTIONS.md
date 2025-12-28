@@ -28,13 +28,13 @@ brew upgrade pixlet
 
 # 3. Test rendering
 cd /Users/mehmet/Library/CloudStorage/Dropbox/Coding/iopooltidbyt
-pixlet render iopool.star api_key=oMryXoKbRx7desfBkK7L698RaI4Q8zdV9sGhACHk -o iopool_output.webp
+pixlet render iopool.star api_key=YOUR_IOPOOL_API_KEY -o iopool_output.webp
 
 # 4. If still having issues, try certificate workaround:
 security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain > ~/mac_certs.pem
 export SSL_CERT_FILE=~/mac_certs.pem
 export SSL_CERT_DIR=""
-pixlet render iopool.star api_key=oMryXoKbRx7desfBkK7L698RaI4Q8zdV9sGhACHk -o iopool_output.webp
+pixlet render iopool.star api_key=YOUR_IOPOOL_API_KEY -o iopool_output.webp
 
 # 5. Deploy to Tidbyt
 ./deploy.sh
