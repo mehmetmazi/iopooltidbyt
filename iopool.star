@@ -12,7 +12,7 @@ load("render.star", "render")
 load("schema.star", "schema")
 
 IOPOOL_API_URL = "https://api.iopool.com/v1"
-CACHE_TTL = 300  # 5 minutes
+CACHE_TTL = 60  # 1 minute for near real-time updates
 LAST_DATA_TTL = 86400  # 24 hours for fallback data
 
 DEFAULT_POOL_DATA = {
@@ -27,54 +27,73 @@ DEFAULT_POOL_DATA = {
 
 def main(config):
     api_key = config.get("api_key", "")
-    pool_id = config.get("pool_id", "")
 
-    if not api_key or not pool_id:
-        return render_error("Configure API key and Pool ID")
+    if not api_key:
+        return render_error("Configure API key")
 
-    pool_data, is_stale = get_pool_data(api_key, pool_id)
+    pool_data, is_stale = get_pool_data(api_key)
 
-    if pool_data is None:
+    if pool_data == None:
         return render_error("Failed to fetch data")
 
     return render_display(pool_data, is_stale)
 
-def get_pool_data(api_key, pool_id):
-    cache_key = "iopool_{}".format(pool_id)
-    last_data_key = "iopool_last_{}".format(pool_id)
+def get_pool_data(api_key):
+    cache_key = "iopool_data"
+    last_data_key = "iopool_last_data"
     cached = cache.get(cache_key)
 
     if cached:
         return json.decode(cached), False
 
-    # Cache expired or not present, try to fetch fresh data
-    url = "{}/pool/{}".format(IOPOOL_API_URL, pool_id)
+    # Get the list of pools - this endpoint returns all pool data we need
+    pools_url = "{}/pools".format(IOPOOL_API_URL)
     headers = {
         "x-api-key": api_key,
     }
 
-    response = http.get(url, headers = headers)
+    pools_response = http.get(pools_url, headers = headers)
 
-    if response.status_code == 200:
-        data = response.json()
-        # Cache fresh data with normal TTL
-        cache.set(cache_key, json.encode(data), ttl_seconds = CACHE_TTL)
-        # Also cache as last known good data with longer TTL
-        cache.set(last_data_key, json.encode(data), ttl_seconds = LAST_DATA_TTL)
-        return data, False
+    if pools_response.status_code != 200:
+        print("iopool API error getting pools: {}".format(pools_response.status_code))
+        print("Response body: {}".format(pools_response.body))
+        # Try to use last known good data
+        last_data = cache.get(last_data_key)
+        if last_data:
+            return json.decode(last_data), True
+        return None, False
 
-    # API failed, try to use last known good data
-    print("iopool API error: {}, trying last known data".format(response.status_code))
-    last_data = cache.get(last_data_key)
+    pools_data = pools_response.json()
+    print("Pools API response:")
+    print(json.encode(pools_data))
+    
+    # Get the first pool from the list (or handle empty list)
+    if not pools_data or len(pools_data) == 0:
+        print("No pools found for this API key")
+        return None, False
 
-    if last_data:
-        return json.decode(last_data), True
+    # Use the first pool's data directly - it already contains all the info we need
+    pool_data = pools_data[0]
+    
+    # Cache fresh data with normal TTL
+    cache.set(cache_key, json.encode(pool_data), ttl_seconds = CACHE_TTL)
+    # Also cache as last known good data with longer TTL
+    cache.set(last_data_key, json.encode(pool_data), ttl_seconds = LAST_DATA_TTL)
+    return pool_data, False
 
-    # No data available at all
-    return None, False
+def format_decimal(value):
+    # Format a float to 1 decimal place (Starlark doesn't support .1f format spec)
+    # Round to 1 decimal place: multiply by 10, round, then format
+    abs_value = value if value >= 0 else -value
+    rounded = int(abs_value * 10 + 0.5)
+    whole = rounded // 10
+    decimal = rounded % 10
+    if value < 0:
+        return "-{}.{}".format(whole, decimal)
+    return "{}.{}".format(whole, decimal)
 
 def render_display(pool_data, is_stale = False):
-    title = pool_data.get("title", "Spa")
+    title = "Jacuzzi"
     measure = pool_data.get("latestMeasure", {})
 
     temp = measure.get("temperature", 0)
@@ -89,20 +108,20 @@ def render_display(pool_data, is_stale = False):
     # Dim title color when showing stale data
     title_color = "#666" if is_stale else "#4fc3f7"
 
-    # Build title row with optional stale indicator
+    # Build compact layout with smaller fonts
     title_children = []
     if is_stale:
         title_children.append(
             render.Box(
-                width = 3,
-                height = 3,
+                width = 2,
+                height = 2,
                 color = "#ff9800",
             ),
         )
-        title_children.append(render.Box(width = 2, height = 1))  # spacer
+        title_children.append(render.Box(width = 1, height = 1))  # spacer
     title_children.append(
         render.Text(
-            content = title[:10] if not is_stale else title[:8],
+            content = title[:12],
             font = "tom-thumb",
             color = title_color,
         ),
@@ -114,14 +133,15 @@ def render_display(pool_data, is_stale = False):
             child = render.Column(
                 expanded = True,
                 main_align = "space_between",
+                cross_align = "center",
                 children = [
-                    # Title row
+                    # Title row at top
                     render.Row(
                         expanded = True,
                         main_align = "center",
                         children = title_children,
                     ),
-                    # Temperature row
+                    # Headers row in the middle
                     render.Row(
                         expanded = True,
                         main_align = "space_between",
@@ -132,42 +152,35 @@ def render_display(pool_data, is_stale = False):
                                 color = "#888",
                             ),
                             render.Text(
-                                content = "{:.1f}C".format(temp),
-                                font = "6x13",
-                                color = temp_color,
-                            ),
-                        ],
-                    ),
-                    # pH row
-                    render.Row(
-                        expanded = True,
-                        main_align = "space_between",
-                        children = [
-                            render.Text(
                                 content = "pH",
                                 font = "tom-thumb",
                                 color = "#888",
                             ),
                             render.Text(
-                                content = "{:.1f}".format(ph),
-                                font = "6x13",
-                                color = ph_color,
+                                content = "ORP",
+                                font = "tom-thumb",
+                                color = "#888",
                             ),
                         ],
                     ),
-                    # ORP row
+                    # Values row at bottom
                     render.Row(
                         expanded = True,
                         main_align = "space_between",
                         children = [
                             render.Text(
-                                content = "ORP",
+                                content = "{}C".format(format_decimal(temp)),
                                 font = "tom-thumb",
-                                color = "#888",
+                                color = temp_color,
+                            ),
+                            render.Text(
+                                content = "{}".format(format_decimal(ph)),
+                                font = "tom-thumb",
+                                color = ph_color,
                             ),
                             render.Text(
                                 content = "{}".format(int(orp)),
-                                font = "6x13",
+                                font = "tom-thumb",
                                 color = orp_color,
                             ),
                         ],
@@ -226,12 +239,6 @@ def get_schema():
                 name = "API Key",
                 desc = "Your iopool API key from the iopool app settings",
                 icon = "key",
-            ),
-            schema.Text(
-                id = "pool_id",
-                name = "Pool/Spa ID",
-                desc = "Your pool or spa ID from iopool",
-                icon = "water",
             ),
         ],
     )
